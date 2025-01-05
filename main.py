@@ -1,211 +1,181 @@
 import os
-import subprocess
-import sys
-import random
-import threading
-
-# Ensure rarfile module is installed
-try:
-    import rarfile
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "rarfile"])
-    import rarfile
-
-import pyperclip
 import requests
-import shutil
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
-from tkinter import *
-from tkinter import messagebox, ttk
+import zipfile
+import shutil
+import tkinter as tk
+from tkinter import messagebox
+from tqdm import tqdm
+import pyshortcuts  # For creating desktop shortcuts
+import pyperclip
 from PIL import Image, ImageTk
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 
-# Setup GUI
-root = Tk()
-root.title("Bunni Cloud Downloader - By Rin (reen)")  # Set the program name and author info
-root.configure(bg="#F9C7D1")  # Pastel pink background
+# Function to set up Selenium WebDriver with Chrome DevTools Protocol (CC)
+def setup_driver():
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')  # Run headless Chrome for background operation
+    chrome_options.add_argument('--remote-debugging-port=9222')  # Enable remote debugging
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    return driver
 
-# Load the pink cute icon (update the path to the correct one)
-icon_image = Image.open("C:/Users/rinse/Downloads/Bunni-Cloud-Downloader/bunni_cloud_downloader.ico")  # Correct the path
-icon_image = icon_image.resize((32, 32))  # Resize the icon to fit the window
-icon = ImageTk.PhotoImage(icon_image)
-
-# Set the icon for the tkinter window
-root.iconphoto(True, icon)
-
-font_style = ("Comic Sans MS", 12)
-
-def create_label(text, bg="#F9C7D1"):
-    label = Label(root, text=text, bg=bg, font=("Comic Sans MS", 14, "bold"), fg="#FF99CC")
-    label.pack(pady=10)
-
-def create_button(text, command):
-    button = Button(root, text=text, command=command, font=("Comic Sans MS", 12, "bold"), bg="#FF99CC", fg="white", relief="solid", bd=2, padx=20, pady=10)
-    button.pack(pady=10)
-    return button
-
-def paste_url():
-    url = pyperclip.paste()  # Get the content from the clipboard
-    url_text.delete("1.0", END)  # Clear any current text
-    url_text.insert("1.0", url)  # Insert the new URL
-
-def fetch_links():
-    url = url_text.get("1.0", "end-1c").strip()
-    if not url:
-        messagebox.showerror("Error", "Please enter a URL.")
-        return
-
-    headers = {
-        'User-Agent': random.choice([
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3', 
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36'
-        ])
-    }
-
+# Function to scrape game download links from a URL using Chrome DevTools Protocol (CC)
+def scrape_game_links(url):
     try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        time.sleep(random.uniform(1, 3))  # Random delay to mimic human behavior
-        soup = BeautifulSoup(response.content, 'html.parser')
-        links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True)]
+        print(f"Scraping game download links from URL: {url}")
+        driver = setup_driver()
+        driver.get(url)
 
-        if not links:
-            messagebox.showerror("Error", "No links found.")
-            return
+        # Wait for the page to load completely and check for links
+        WebDriverWait(driver, 20).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'a')))  # Wait for <a> tags to be loaded
 
-        display_links(links)
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("Error", f"Failed to fetch links: {e}")
+        # Simulate interaction with the page if needed (e.g., scrolling, clicking a button)
+        try:
+            more_button = driver.find_element(By.ID, 'more-button')  # Adjust to the actual element ID or class
+            more_button.click()  # Simulate clicking a button to reveal links
+            time.sleep(2)  # Wait for content to load
+        except Exception as e:
+            print("No additional interaction needed, proceeding with links...")
 
-def fetch_gog_games_links():
-    url = url_text.get("1.0", "end-1c").strip()
-    if not url:
-        messagebox.showerror("Error", "Please enter a URL.")
-        return
+        # Simulate scrolling to ensure dynamic content is loaded
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(3)  # Give time for content to load
 
-    headers = {
-        'User-Agent': random.choice([
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3', 
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36'
-        ])
-    }
+        # Print the page source for debugging purposes
+        page_source = driver.page_source
+        print(f"Page Source (first 500 characters):\n{page_source[:500]}")
 
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
-        links = [urljoin(url, a['href']) for a in soup.find_all('a', href=True) if 'gog-games.to' in a['href']]
+        # Scrape game download links (filter links based on file types)
+        links = driver.find_elements(By.TAG_NAME, 'a')
+        game_links = [link.get_attribute('href') for link in links if link.get_attribute('href') and ('.rar' in link.get_attribute('href') or '.exe' in link.get_attribute('href') or '.zip' in link.get_attribute('href'))]
 
-        if not links:
-            messagebox.showerror("Error", "No links found.")
-            return
+        if not game_links:
+            print("No game download links found after scrolling, retrying...")
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(5)
 
-        display_links(links)
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("Error", f"Failed to fetch links: {e}")
+            # Retry to find game links after additional scrolling
+            links = driver.find_elements(By.TAG_NAME, 'a')
+            game_links = [link.get_attribute('href') for link in links if link.get_attribute('href') and ('.rar' in link.get_attribute('href') or '.exe' in link.get_attribute('href') or '.zip' in link.get_attribute('href'))]
 
-def display_links(links):
-    link_window = Toplevel(root)
-    link_window.title("Select Download Link")
-    link_window.configure(bg="#FFB6C1")
+        driver.quit()
+        print(f"Found game download links: {game_links}")
+        return game_links
+    except Exception as e:
+        print(f"Error occurred while scraping game download links: {e}")
+        return []
+
+# Function to display clickable links in a floating window
+def show_links_window(links):
+    root = tk.Tk()
+    root.title("Available Links")
+    root.geometry("300x300")
+    root.config(bg="lavender")
+
+    def on_link_click(link):
+        download_file(link)
 
     for link in links:
-        link_button = Button(link_window, text=link, font=("Comic Sans MS", 12), fg="#FF69B4", bg="#FFFFFF", relief="solid", bd=2, wraplength=400, command=lambda l=link: start_download(l))
-        link_button.pack(pady=5)
+        button = tk.Button(root, text=link, command=lambda link=link: on_link_click(link))
+        button.pack(fill=tk.X, padx=5, pady=5)
 
-def start_download(link):
-    download_window = Toplevel(root)
-    download_window.title("Downloading...")
-    download_window.configure(bg="#FFB6C1")
+    root.mainloop()
 
-    progress_label = Label(download_window, text="Downloading...", font=("Comic Sans MS", 14, "bold"), fg="#FF69B4", bg="#FFB6C1")
-    progress_label.pack(pady=10)
+# Function to handle file download and show progress bar
+def download_file(url):
+    filename = os.path.basename(url)
+    file_path = os.path.join(os.getcwd(), filename)
 
-    progress_bar = ttk.Progressbar(download_window, orient=HORIZONTAL, length=300, mode='determinate')
-    progress_bar.pack(pady=10)
+    with requests.get(url, stream=True) as response:
+        total_size = int(response.headers.get('content-length', 0))
+        with open(file_path, 'wb') as file, tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as bar:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    file.write(chunk)
+                    bar.update(len(chunk))
 
-    def download_file():
-        local_filename = link.split('/')[-1]
-        headers = {
-            'User-Agent': random.choice([
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3', 
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36',
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36'
-            ])
-        }
-        with requests.get(link, headers=headers, stream=True) as r:
-            total_length = int(r.headers.get('content-length', 0))
-            progress_bar['maximum'] = total_length
-            with open(local_filename, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        progress_bar['value'] += len(chunk)
-                        download_window.update_idletasks()
+    # Extract the file if it's a zip archive
+    if file_path.endswith('.zip'):
+        extract_file(file_path)
 
-        extract_and_setup(local_filename)
-        download_window.destroy()
+# Function to extract the downloaded zip file and place it in C:\Games
+def extract_file(zip_path):
+    extract_folder = r'C:\Games'
+    if not os.path.exists(extract_folder):
+        os.makedirs(extract_folder)
 
-    download_thread = threading.Thread(target=download_file)
-    download_thread.start()
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_folder)
 
-def extract_and_setup(filename):
-    extract_path = "C:/Games"
-    if not os.path.exists(extract_path):
-        os.makedirs(extract_path)
-
-    with rarfile.RarFile(filename) as rf:
-        rf.extractall(extract_path)
-
-    for root, dirs, files in os.walk(extract_path):
+    # Check for executable file and create a shortcut
+    for root_dir, _, files in os.walk(extract_folder):
         for file in files:
             if file.endswith('.exe'):
-                exe_path = os.path.join(root, file)
-                create_shortcut(exe_path, "Bunni Cloud Downloader")
+                executable_path = os.path.join(root_dir, file)
+                create_shortcut(executable_path)
+                break
 
-    os.remove(filename)
-    show_completion_message()
+    os.remove(zip_path)  # Delete the zip file after extraction
 
-def create_shortcut(target, name):
-    desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
-    shortcut_path = os.path.join(desktop, f"{name}.lnk")
-    shell = win32com.client.Dispatch("WScript.Shell")
-    shortcut = shell.CreateShortCut(shortcut_path)
-    shortcut.Targetpath = target
-    shortcut.WorkingDirectory = os.path.dirname(target)
-    shortcut.save()
+    # Show a cheerful message and close the program
+    messagebox.showinfo("Success", "Yay! The file has been extracted successfully! uwu")
+    exit()
 
-def show_completion_message():
-    messagebox.showinfo("Success", "Download and setup complete! UwU")
-    root.destroy()
+# Function to create a shortcut on the desktop
+def create_shortcut(executable_path):
+    shortcut = pyshortcuts.make_shortcut(executable_path, name="Game Shortcut", folder=os.path.expanduser("~/Desktop"))
+    shortcut.create()
 
-def force_close():
-    root.destroy()
-    os._exit(0)
+# Function to force the program to close when the user exits
+def close_program(root):
+    root.quit()
 
-create_label("UwU, enter the Game Download URL~")
-url_text = Text(root, height=1, width=50, font=font_style)
-url_text.pack(pady=5)
+# Main function to control the flow
+def main():
+    root = tk.Tk()
+    root.title("Link Scraper")
+    root.geometry("500x400")
+    root.config(bg="lavender")
 
-create_button("Check and Download UwU", fetch_links)
-create_button("Paste URL", paste_url)
-create_button("UwU Copy Log", lambda: None)  # Placeholder command
+    # Create a URL input field
+    url_var = tk.StringVar()
+    url_entry = tk.Entry(root, textvariable=url_var, width=40, font=("Arial", 14))
+    url_entry.pack(pady=20)
 
-log_label = Label(root, text="Log Output:", bg="#F9C7D1", font=("Comic Sans MS", 12, "bold"), fg="#FF99CC")
-log_label.pack(pady=10)
+    # Button to paste the URL into the textbox
+    def on_paste_url():
+        url = pyperclip.paste()
+        print(f"Pasted URL: {url}")
+        url_var.set(url)
 
-# Make the log window look like a terminal
-log_text = Text(root, height=10, width=50, font=("Courier New", 12), wrap=WORD, state=DISABLED, bg="black", fg="white")
-log_text.pack(pady=5)
+    paste_button = tk.Button(root, text="Paste URL", command=on_paste_url, font=("Arial", 14), bg="pink")
+    paste_button.pack(pady=10)
 
-root.protocol("WM_DELETE_WINDOW", force_close)
-root.mainloop()
+    # Button to scrape links from the URL in the textbox
+    def on_scrape_links():
+        url = url_var.get()
+        print(f"Scraping URL: {url}")
+        links = scrape_game_links(url)
+        if links:
+            show_links_window(links)
+        else:
+            messagebox.showerror("Error", "No links found on the page!")
+
+    scrape_button = tk.Button(root, text="Scrape Links", command=on_scrape_links, font=("Arial", 14), bg="lightgreen")
+    scrape_button.pack(pady=10)
+
+    # Exit button
+    exit_button = tk.Button(root, text="Exit", command=lambda: close_program(root), font=("Arial", 14), bg="lightblue")
+    exit_button.pack(pady=10)
+
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()

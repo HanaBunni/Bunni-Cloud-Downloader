@@ -1,0 +1,9 @@
+requests
+selenium
+webdriver_manager
+fake_useragent
+stem
+tqdm
+pyshortcuts
+pyperclip
+Pillow
